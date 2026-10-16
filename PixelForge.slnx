@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PixelForge.Engine/PixelForge.Engine.csproj" />
+    <Project Path="src/PixelForge.Sandbox/PixelForge.Sandbox.csproj" />
+  </Folder>
+</Solution>
