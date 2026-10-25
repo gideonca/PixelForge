@@ -2,9 +2,9 @@
 
 ## Foundation
 
-- [ ] Replace the engine placeholder with a documented engine entry point.
+- [x] Replace the engine placeholder with a documented engine entry point.
 - [ ] Define engine configuration and lifecycle states.
-- [ ] Add a logging and error-reporting approach for engine subsystems.
+- [x] Add a logging and error-reporting approach for engine subsystems.
 - [ ] Establish a test project and tests for core engine behavior.
 
 ## Game loop and lifecycle
