@@ -1,8 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using PixelForge.Engine.Core;
-using PixelForge.Engine.Generation;
-using PixelForge.Engine.Meshing;
-using PixelForge.Sandbox;
+using PixelForge.Engine.Rendering;
 
 using var loggerFactory = LoggerFactory.Create(builder =>
 {
@@ -15,7 +13,7 @@ using var loggerFactory = LoggerFactory.Create(builder =>
         });
 });
 
-using var game = new SandboxGame(
+using var game = new ChunkPreviewGame(
     loggerFactory.CreateLogger<Game>());
 
 game.Run();
