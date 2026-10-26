@@ -8,9 +8,12 @@ public sealed unsafe class GpuMesh : IDisposable
 {
     private readonly GL _gl;
     private readonly uint _indexCount;
+    private readonly uint _edgeVertexCount;
     private uint _vertexArray;
     private uint _vertexBuffer;
     private uint _indexBuffer;
+    private uint _edgeVertexArray;
+    private uint _edgeVertexBuffer;
 
     public GpuMesh(GL gl, ChunkMesh mesh)
     {
@@ -33,6 +36,20 @@ public sealed unsafe class GpuMesh : IDisposable
         gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), (void*)0);
 
         gl.BindVertexArray(0);
+
+        _edgeVertexCount = (uint)mesh.BlockEdges.Length;
+        if (_edgeVertexCount == 0)
+            return;
+
+        _edgeVertexArray = gl.GenVertexArray();
+        _edgeVertexBuffer = gl.GenBuffer();
+
+        gl.BindVertexArray(_edgeVertexArray);
+        gl.BindBuffer(BufferTargetARB.ArrayBuffer, _edgeVertexBuffer);
+        gl.BufferData(BufferTargetARB.ArrayBuffer, mesh.BlockEdges, BufferUsageARB.StaticDraw);
+        gl.EnableVertexAttribArray(0);
+        gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), (void*)0);
+        gl.BindVertexArray(0);
     }
 
     public void Draw()
@@ -41,13 +58,30 @@ public sealed unsafe class GpuMesh : IDisposable
         _gl.DrawElements(PrimitiveType.Triangles, _indexCount, DrawElementsType.UnsignedInt, (void*)0);
     }
 
+    public void DrawBlockEdges()
+    {
+        if (_edgeVertexCount == 0)
+            return;
+
+        _gl.BindVertexArray(_edgeVertexArray);
+        _gl.DrawArrays(PrimitiveType.Lines, 0, _edgeVertexCount);
+    }
+
     public void Dispose()
     {
-        if (_vertexArray == 0)
-            return;
-        _gl.DeleteBuffer(_vertexBuffer);
-        _gl.DeleteBuffer(_indexBuffer);
-        _gl.DeleteVertexArray(_vertexArray);
-        _vertexArray = _vertexBuffer = _indexBuffer = 0;
+        if (_vertexArray != 0)
+        {
+            _gl.DeleteBuffer(_vertexBuffer);
+            _gl.DeleteBuffer(_indexBuffer);
+            _gl.DeleteVertexArray(_vertexArray);
+            _vertexArray = _vertexBuffer = _indexBuffer = 0;
+        }
+
+        if (_edgeVertexArray != 0)
+        {
+            _gl.DeleteBuffer(_edgeVertexBuffer);
+            _gl.DeleteVertexArray(_edgeVertexArray);
+            _edgeVertexArray = _edgeVertexBuffer = 0;
+        }
     }
 }

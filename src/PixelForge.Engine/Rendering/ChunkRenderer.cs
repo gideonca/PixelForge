@@ -35,14 +35,40 @@ public sealed class ChunkRenderer : IDisposable
         }
         """;
 
+    private const string EdgeVertexSource = """
+        #version 330 core
+        layout (location = 0) in vec3 aPosition;
+        uniform mat4 uViewProjection;
+        uniform mat4 uModel;
+
+        void main()
+        {
+            gl_Position = uViewProjection * uModel * vec4(aPosition, 1.0);
+        }
+        """;
+
+    private const string EdgeFragmentSource = """
+        #version 330 core
+        out vec4 FragColor;
+
+        void main()
+        {
+            FragColor = vec4(0.04, 0.05, 0.06, 1.0);
+        }
+        """;
+
     private readonly GL _gl;
     private readonly ShaderProgram _shader;
+    private readonly ShaderProgram _edgeShader;
     private readonly List<(GpuMesh Mesh, Matrix4x4 Model)> _chunks = new();
+
+    public bool DebugShowBlockBorders { get; set; } = true;
 
     public ChunkRenderer(GL gl)
     {
         _gl = gl;
         _shader = new ShaderProgram(gl, VertexSource, FragmentSource);
+        _edgeShader = new ShaderProgram(gl, EdgeVertexSource, EdgeFragmentSource);
     }
 
     public GpuMesh Add(ChunkMesh mesh, Vector3 worldOffset = default)
@@ -61,6 +87,19 @@ public sealed class ChunkRenderer : IDisposable
             _shader.SetUniform("uModel", model);
             mesh.Draw();
         }
+
+        if (DebugShowBlockBorders)
+        {
+            _edgeShader.Use();
+            _edgeShader.SetUniform("uViewProjection", camera.ViewProjection);
+            _gl.DepthFunc(DepthFunction.Lequal);
+            foreach (var (mesh, model) in _chunks)
+            {
+                _edgeShader.SetUniform("uModel", model);
+                mesh.DrawBlockEdges();
+            }
+            _gl.DepthFunc(DepthFunction.Less);
+        }
     }
 
     public void Dispose()
@@ -69,5 +108,6 @@ public sealed class ChunkRenderer : IDisposable
             mesh.Dispose();
         _chunks.Clear();
         _shader.Dispose();
+        _edgeShader.Dispose();
     }
 }

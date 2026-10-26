@@ -56,12 +56,26 @@ public static class ChunkMesher
         ]
     ];
 
+    private static readonly (int First, int Second)[] BlockEdges =
+    [
+        (0, 1), (1, 2), (2, 3), (3, 0),
+        (4, 5), (5, 6), (6, 7), (7, 4),
+        (0, 4), (1, 5), (2, 6), (3, 7)
+    ];
+
+    private static readonly Vector3[] BlockCorners =
+    [
+        new(0, 0, 0), new(1, 0, 0), new(1, 1, 0), new(0, 1, 0),
+        new(0, 0, 1), new(1, 0, 1), new(1, 1, 1), new(0, 1, 1)
+    ];
+
     public static ChunkMesh Build(Chunk chunk)
     {
         ArgumentNullException.ThrowIfNull(chunk);
 
         var positions = new List<Vector3>();
         var indices = new List<uint>();
+        var blockEdges = new List<Vector3>();
 
         for (int z = 0; z < Chunk.ChunkSize; z++)
         {
@@ -73,6 +87,7 @@ public static class ChunkMesher
                         continue;
 
                     var blockPosition = new Vector3(x, y, z);
+                    AddBlockEdges(blockPosition, blockEdges);
 
                     for (int face = 0; face < Neighbors.Length; face++)
                     {
@@ -99,7 +114,19 @@ public static class ChunkMesher
 
         return new ChunkMesh(
             positions.ToArray(),
-            indices.ToArray());
+            indices.ToArray())
+        {
+            BlockEdges = blockEdges.ToArray()
+        };
+    }
+
+    private static void AddBlockEdges(Vector3 blockPosition, List<Vector3> positions)
+    {
+        foreach (var (first, second) in BlockEdges)
+        {
+            positions.Add(blockPosition + BlockCorners[first]);
+            positions.Add(blockPosition + BlockCorners[second]);
+        }
     }
 
     private static bool IsSolid(Chunk chunk, int x, int y, int z)

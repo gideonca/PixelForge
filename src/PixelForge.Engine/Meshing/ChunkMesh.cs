@@ -4,4 +4,7 @@ namespace PixelForge.Engine.Meshing;
 
 public sealed record ChunkMesh(
     Vector3[] Positions,
-    uint[] Indices);
+    uint[] Indices)
+{
+    public Vector3[] BlockEdges { get; init; } = [];
+}
