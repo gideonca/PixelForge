@@ -3,7 +3,10 @@ using Silk.NET.OpenGL;
 
 namespace PixelForge.Engine.Rendering;
 
-/// <summary>Uploads a <see cref="ChunkMesh"/> (position-only vertices, attribute location 0) to the GPU.</summary>
+/// <summary>
+/// Uploads a <see cref="ChunkMesh"/> to the GPU. Solid vertices use indexed triangles;
+/// optional block outlines use line endpoint pairs.
+/// </summary>
 public sealed unsafe class GpuMesh : IDisposable
 {
     private readonly GL _gl;
@@ -15,6 +18,7 @@ public sealed unsafe class GpuMesh : IDisposable
     private uint _edgeVertexArray;
     private uint _edgeVertexBuffer;
 
+    /// <summary>Creates GPU buffers and vertex arrays for the solid mesh and its outlines.</summary>
     public GpuMesh(GL gl, ChunkMesh mesh)
     {
         _gl = gl;
@@ -38,6 +42,7 @@ public sealed unsafe class GpuMesh : IDisposable
         gl.BindVertexArray(0);
 
         _edgeVertexCount = (uint)mesh.BlockEdges.Length;
+        // Meshes without outline data need only the solid vertex array and buffers.
         if (_edgeVertexCount == 0)
             return;
 
@@ -52,12 +57,14 @@ public sealed unsafe class GpuMesh : IDisposable
         gl.BindVertexArray(0);
     }
 
+    /// <summary>Draws the solid triangle faces.</summary>
     public void Draw()
     {
         _gl.BindVertexArray(_vertexArray);
         _gl.DrawElements(PrimitiveType.Triangles, _indexCount, DrawElementsType.UnsignedInt, (void*)0);
     }
 
+    /// <summary>Draws each consecutive pair of outline vertices as a line segment.</summary>
     public void DrawBlockEdges()
     {
         if (_edgeVertexCount == 0)
@@ -67,6 +74,7 @@ public sealed unsafe class GpuMesh : IDisposable
         _gl.DrawArrays(PrimitiveType.Lines, 0, _edgeVertexCount);
     }
 
+    /// <summary>Deletes all GPU resources owned by this mesh.</summary>
     public void Dispose()
     {
         if (_vertexArray != 0)

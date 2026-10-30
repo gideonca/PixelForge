@@ -2,8 +2,10 @@ using Microsoft.Extensions.Logging;
 
 namespace PixelForge.Engine.Diagnostics;
 
+/// <summary>Centralized, source-generated log messages used by the engine.</summary>
 internal static partial class EngineLog
 {
+    // Keep event IDs explicit so engine messages remain identifiable in log filters and diagnostics.
     // Debug
 
     [LoggerMessage(

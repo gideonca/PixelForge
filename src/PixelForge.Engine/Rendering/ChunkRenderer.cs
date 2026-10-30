@@ -4,9 +4,10 @@ using Silk.NET.OpenGL;
 
 namespace PixelForge.Engine.Rendering;
 
-/// <summary>Draws any number of chunk meshes, each at its own world offset, from a camera.</summary>
+/// <summary>Draws chunk meshes and optional debug block outlines from a camera.</summary>
 public sealed class ChunkRenderer : IDisposable
 {
+    // The solid pass shades block faces using their local position.
     private const string VertexSource = """
         #version 330 core
         layout (location = 0) in vec3 aPosition;
@@ -35,6 +36,7 @@ public sealed class ChunkRenderer : IDisposable
         }
         """;
 
+    // The outline pass uses a separate shader so its color does not affect the solid surfaces.
     private const string EdgeVertexSource = """
         #version 330 core
         layout (location = 0) in vec3 aPosition;
@@ -62,8 +64,10 @@ public sealed class ChunkRenderer : IDisposable
     private readonly ShaderProgram _edgeShader;
     private readonly List<(GpuMesh Mesh, Matrix4x4 Model)> _chunks = new();
 
+    /// <summary>Gets or sets whether per-block outlines are drawn for debugging.</summary>
     public bool DebugShowBlockBorders { get; set; } = true;
 
+    /// <summary>Creates the solid-surface and block-outline shader programs.</summary>
     public ChunkRenderer(GL gl)
     {
         _gl = gl;
@@ -71,6 +75,7 @@ public sealed class ChunkRenderer : IDisposable
         _edgeShader = new ShaderProgram(gl, EdgeVertexSource, EdgeFragmentSource);
     }
 
+    /// <summary>Uploads a mesh and associates it with a translation in world space.</summary>
     public GpuMesh Add(ChunkMesh mesh, Vector3 worldOffset = default)
     {
         var gpuMesh = new GpuMesh(_gl, mesh);
@@ -78,6 +83,7 @@ public sealed class ChunkRenderer : IDisposable
         return gpuMesh;
     }
 
+    /// <summary>Draws all registered chunks, followed by their optional debug outlines.</summary>
     public void Render(OrbitCamera camera)
     {
         _shader.Use();
@@ -88,6 +94,7 @@ public sealed class ChunkRenderer : IDisposable
             mesh.Draw();
         }
 
+        // Draw borders after surfaces; Lequal lets coplanar edge fragments pass the depth test.
         if (DebugShowBlockBorders)
         {
             _edgeShader.Use();
@@ -98,10 +105,12 @@ public sealed class ChunkRenderer : IDisposable
                 _edgeShader.SetUniform("uModel", model);
                 mesh.DrawBlockEdges();
             }
+            // Restore the default strict comparison for later rendering passes.
             _gl.DepthFunc(DepthFunction.Less);
         }
     }
 
+    /// <summary>Releases every uploaded chunk mesh and both shader programs.</summary>
     public void Dispose()
     {
         foreach (var (mesh, _) in _chunks)

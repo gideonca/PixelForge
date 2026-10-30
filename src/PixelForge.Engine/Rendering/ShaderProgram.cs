@@ -3,23 +3,28 @@ using Silk.NET.OpenGL;
 
 namespace PixelForge.Engine.Rendering;
 
+/// <summary>Compiles, links, and manages an OpenGL program with cached uniform locations.</summary>
 public sealed class ShaderProgram : IDisposable
 {
     private readonly GL _gl;
     private readonly Dictionary<string, int> _uniforms = new();
     private uint _handle;
 
+    /// <summary>Creates a program from GLSL vertex and fragment shader source.</summary>
     public ShaderProgram(GL gl, string vertexSource, string fragmentSource)
     {
         _gl = gl;
         _handle = Link(vertexSource, fragmentSource);
     }
 
+    /// <summary>Makes this program active for subsequent draw calls.</summary>
     public void Use() => _gl.UseProgram(_handle);
 
+    /// <summary>Sets a floating-point shader uniform.</summary>
     public void SetUniform(string name, float value) =>
         _gl.Uniform1(Location(name), value);
 
+    /// <summary>Sets a matrix shader uniform using the layout expected by the renderer's shaders.</summary>
     public unsafe void SetUniform(string name, in Matrix4x4 value)
     {
         // System.Numerics is row-major; GLSL reads the same memory as the transpose, which matches row-vector math.
@@ -29,6 +34,7 @@ public sealed class ShaderProgram : IDisposable
 
     private int Location(string name)
     {
+        // Uniform lookup is stable for a linked program, so query each name only once.
         if (!_uniforms.TryGetValue(name, out int location))
             _uniforms[name] = location = _gl.GetUniformLocation(_handle, name);
         return location;
@@ -42,6 +48,7 @@ public sealed class ShaderProgram : IDisposable
 
         try
         {
+            // Compile both stages before creating and linking the final program.
             vertexShader = Compile(ShaderType.VertexShader, vertexSource);
             fragmentShader = Compile(ShaderType.FragmentShader, fragmentSource);
             program = _gl.CreateProgram();
@@ -64,6 +71,7 @@ public sealed class ShaderProgram : IDisposable
         }
         finally
         {
+            // Once linked, the program retains the shader code; the shader objects can be deleted.
             if (vertexShader != 0)
                 _gl.DeleteShader(vertexShader);
             if (fragmentShader != 0)
@@ -82,9 +90,11 @@ public sealed class ShaderProgram : IDisposable
 
         string log = _gl.GetShaderInfoLog(shader);
         _gl.DeleteShader(shader);
+        // Surface compiler diagnostics to the caller rather than returning an unusable program.
         throw new InvalidOperationException($"Failed to compile {type} shader: {log}");
     }
 
+    /// <summary>Deletes the linked program. Safe to call more than once.</summary>
     public void Dispose()
     {
         if (_handle == 0)
