@@ -16,6 +16,7 @@ namespace PixelForge.Engine.Core
         private readonly ILogger<Game> _logger;
         private GL? _gl;
         private IInputContext? _input;
+        private System.Numerics.Vector2? _lastMousePosition;
 
         /// <summary>Gets the initialized OpenGL API, or throws if the window has not loaded.</summary>
         protected GL Gl =>
@@ -71,10 +72,28 @@ namespace PixelForge.Engine.Core
             _input = _window.CreateInput();
             foreach (var keyboard in _input.Keyboards)
                 keyboard.KeyDown += (_, key, _) => OnKeyDown(key);
+            foreach (var mouse in _input.Mice)
+                mouse.MouseMove += (_, position) => HandleMouseMove(position);
             Gl.Enable(EnableCap.DepthTest);
             OnFramebufferResize(_window.FramebufferSize);
             OnLoad();
         }
+
+        private void HandleMouseMove(System.Numerics.Vector2 position)
+        {
+            // Report movement relative to the previous position; the first event has no reference.
+            if (_lastMousePosition is { } last)
+                OnMouseMove(position - last);
+            _lastMousePosition = position;
+        }
+
+        /// <summary>Returns whether the key is currently held down on any keyboard.</summary>
+        protected bool IsKeyDown(Key key) =>
+            _input?.Keyboards.Any(keyboard => keyboard.IsKeyPressed(key)) ?? false;
+
+        /// <summary>Returns whether the mouse button is currently held down on any mouse.</summary>
+        protected bool IsMouseButtonDown(MouseButton button) =>
+            _input?.Mice.Any(mouse => mouse.IsButtonPressed(button)) ?? false;
 
         private void OnFramebufferResize(Vector2D<int> size)
         {
@@ -109,6 +128,9 @@ namespace PixelForge.Engine.Core
 
         /// <summary>Called when a key is pressed on any keyboard.</summary>
         protected virtual void OnKeyDown(Key key) { }
+
+        /// <summary>Called when the mouse moves; <paramref name="delta"/> is the movement in pixels.</summary>
+        protected virtual void OnMouseMove(System.Numerics.Vector2 delta) { }
 
         /// <summary>Called before the OpenGL context is released.</summary>
         protected virtual void OnUnload() { }

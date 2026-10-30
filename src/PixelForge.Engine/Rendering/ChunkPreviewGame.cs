@@ -9,13 +9,20 @@ using Silk.NET.OpenGL;
 
 namespace PixelForge.Engine.Rendering;
 
-/// <summary>A sample game that generates, uploads, and rotates a chunk preview.</summary>
+/// <summary>
+/// A sample game that generates and uploads a chunk preview you can fly around.
+/// Controls: W/A/S/D move, Q/E move down/up, Shift is faster, hold the right mouse button to look, F6 toggles chunk boundaries.
+/// </summary>
 public sealed class ChunkPreviewGame : Game
 {
     private readonly ChunkMesh _mesh;
     private readonly int _chunkCount;
     private readonly int _columns;
-    private readonly OrbitCamera _camera;
+    private const float MoveSpeed = 20f;
+    private const float FastMultiplier = 3f;
+    private const float LookSensitivity = 0.003f;
+
+    private readonly FlyCamera _camera;
     private ChunkRenderer? _renderer;
 
     /// <summary>
@@ -40,12 +47,15 @@ public sealed class ChunkPreviewGame : Game
 
         // Prepare the mesh before the graphics context is created; GPU upload happens in OnLoad.
         _mesh = mesh ?? ChunkMesher.Build(TerrainGenerator.GenerateSolidChunk());
-        _camera = new OrbitCamera
+        _camera = new FlyCamera
         {
-            // Aim at the center of the whole grid and pull back to fit it in view.
-            Target = new Vector3(_columns * Chunk.ChunkSize / 2f, Chunk.ChunkSize / 2f, rows * Chunk.ChunkSize / 2f),
-            Distance = Math.Max(34f, gridExtent * 2f),
-            FarPlane = Math.Max(200f, gridExtent * 6f),
+            // Start outside the grid, centered on it and looking toward it from slightly above.
+            Position = new Vector3(
+                _columns * Chunk.ChunkSize / 2f,
+                Chunk.ChunkSize,
+                rows * Chunk.ChunkSize + gridExtent),
+            Pitch = -0.25f,
+            FarPlane = Math.Max(500f, gridExtent * 6f),
             AspectRatio = width / (float)height
         };
     }
@@ -72,11 +82,37 @@ public sealed class ChunkPreviewGame : Game
             _renderer.ShowChunkBoundaries = !_renderer.ShowChunkBoundaries;
     }
 
+    protected override void OnMouseMove(Vector2 delta)
+    {
+        // Only look around while the right button is held, so the cursor stays free otherwise.
+        if (!IsMouseButtonDown(MouseButton.Right))
+            return;
+
+        _camera.Yaw += delta.X * LookSensitivity;
+        _camera.Pitch -= delta.Y * LookSensitivity;
+    }
+
+    protected override void OnUpdate(double delta)
+    {
+        // Build the movement direction from the held keys.
+        var direction = Vector3.Zero;
+        if (IsKeyDown(Key.W)) direction += _camera.Forward;
+        if (IsKeyDown(Key.S)) direction -= _camera.Forward;
+        if (IsKeyDown(Key.D)) direction += _camera.Right;
+        if (IsKeyDown(Key.A)) direction -= _camera.Right;
+        if (IsKeyDown(Key.E)) direction += Vector3.UnitY;
+        if (IsKeyDown(Key.Q)) direction -= Vector3.UnitY;
+
+        if (direction == Vector3.Zero)
+            return;
+
+        // Normalize so diagonal movement is not faster, and scale by time for frame-rate independence.
+        float speed = IsKeyDown(Key.ShiftLeft) ? MoveSpeed * FastMultiplier : MoveSpeed;
+        _camera.Position += Vector3.Normalize(direction) * speed * (float)delta;
+    }
+
     protected override void OnRender(double delta)
     {
-        // Rotate at a fixed angular speed regardless of the frame rate.
-        _camera.Yaw += (float)delta * 0.5f;
-
         // Clear both color and depth before drawing the current frame.
         Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
         _renderer?.Render(_camera);

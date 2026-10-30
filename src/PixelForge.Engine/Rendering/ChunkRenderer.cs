@@ -90,7 +90,7 @@ public sealed class ChunkRenderer : IDisposable
     }
 
     /// <summary>Draws all registered chunks, followed by their optional debug outlines.</summary>
-    public void Render(OrbitCamera camera)
+    public void Render(FlyCamera camera)
     {
         _shader.Use();
         _shader.SetUniform("uViewProjection", camera.ViewProjection);
