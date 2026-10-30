@@ -51,11 +51,12 @@ public sealed class ChunkRenderer : IDisposable
 
     private const string EdgeFragmentSource = """
         #version 330 core
+        uniform vec3 uColor;
         out vec4 FragColor;
 
         void main()
         {
-            FragColor = vec4(0.04, 0.05, 0.06, 1.0);
+            FragColor = vec4(uColor, 1.0);
         }
         """;
 
@@ -63,9 +64,13 @@ public sealed class ChunkRenderer : IDisposable
     private readonly ShaderProgram _shader;
     private readonly ShaderProgram _edgeShader;
     private readonly List<(GpuMesh Mesh, Matrix4x4 Model)> _chunks = new();
+    private readonly GpuMesh _boundaryMesh;
 
     /// <summary>Gets or sets whether per-block outlines are drawn for debugging.</summary>
     public bool DebugShowBlockBorders { get; set; } = true;
+
+    /// <summary>Gets or sets whether an always-visible outline is drawn around each chunk's bounds.</summary>
+    public bool ShowChunkBoundaries { get; set; }
 
     /// <summary>Creates the solid-surface and block-outline shader programs.</summary>
     public ChunkRenderer(GL gl)
@@ -73,6 +78,7 @@ public sealed class ChunkRenderer : IDisposable
         _gl = gl;
         _shader = new ShaderProgram(gl, VertexSource, FragmentSource);
         _edgeShader = new ShaderProgram(gl, EdgeVertexSource, EdgeFragmentSource);
+        _boundaryMesh = new GpuMesh(gl, ChunkMesher.BuildBoundary());
     }
 
     /// <summary>Uploads a mesh and associates it with a translation in world space.</summary>
@@ -99,6 +105,7 @@ public sealed class ChunkRenderer : IDisposable
         {
             _edgeShader.Use();
             _edgeShader.SetUniform("uViewProjection", camera.ViewProjection);
+            _edgeShader.SetUniform("uColor", new Vector3(0.04f, 0.05f, 0.06f));
             _gl.DepthFunc(DepthFunction.Lequal);
             foreach (var (mesh, model) in _chunks)
             {
@@ -108,6 +115,21 @@ public sealed class ChunkRenderer : IDisposable
             // Restore the default strict comparison for later rendering passes.
             _gl.DepthFunc(DepthFunction.Less);
         }
+
+        if (ShowChunkBoundaries)
+        {
+            // Bright and drawn without depth testing so chunk limits stay visible through terrain.
+            _edgeShader.Use();
+            _edgeShader.SetUniform("uViewProjection", camera.ViewProjection);
+            _edgeShader.SetUniform("uColor", new Vector3(1f, 0.85f, 0.1f));
+            _gl.Disable(EnableCap.DepthTest);
+            foreach (var (_, model) in _chunks)
+            {
+                _edgeShader.SetUniform("uModel", model);
+                _boundaryMesh.DrawBlockEdges();
+            }
+            _gl.Enable(EnableCap.DepthTest);
+        }
     }
 
     /// <summary>Releases every uploaded chunk mesh and both shader programs.</summary>
@@ -116,6 +138,7 @@ public sealed class ChunkRenderer : IDisposable
         foreach (var (mesh, _) in _chunks)
             mesh.Dispose();
         _chunks.Clear();
+        _boundaryMesh.Dispose();
         _shader.Dispose();
         _edgeShader.Dispose();
     }

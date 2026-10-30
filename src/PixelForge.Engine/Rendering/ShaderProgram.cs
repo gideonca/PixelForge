@@ -24,6 +24,10 @@ public sealed class ShaderProgram : IDisposable
     public void SetUniform(string name, float value) =>
         _gl.Uniform1(Location(name), value);
 
+    /// <summary>Sets a three-component vector shader uniform.</summary>
+    public void SetUniform(string name, Vector3 value) =>
+        _gl.Uniform3(Location(name), value.X, value.Y, value.Z);
+
     /// <summary>Sets a matrix shader uniform using the layout expected by the renderer's shaders.</summary>
     public unsafe void SetUniform(string name, in Matrix4x4 value)
     {

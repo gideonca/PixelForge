@@ -1,3 +1,4 @@
+using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
@@ -14,6 +15,7 @@ namespace PixelForge.Engine.Core
         private readonly IWindow _window;
         private readonly ILogger<Game> _logger;
         private GL? _gl;
+        private IInputContext? _input;
 
         /// <summary>Gets the initialized OpenGL API, or throws if the window has not loaded.</summary>
         protected GL Gl =>
@@ -65,6 +67,10 @@ namespace PixelForge.Engine.Core
         {
             // The OpenGL API is only available after the window creates its graphics context.
             _gl = GL.GetApi(_window);
+            // Forward key presses from every connected keyboard to the game.
+            _input = _window.CreateInput();
+            foreach (var keyboard in _input.Keyboards)
+                keyboard.KeyDown += (_, key, _) => OnKeyDown(key);
             Gl.Enable(EnableCap.DepthTest);
             OnFramebufferResize(_window.FramebufferSize);
             OnLoad();
@@ -85,6 +91,8 @@ namespace PixelForge.Engine.Core
             }
             finally
             {
+                _input?.Dispose();
+                _input = null;
                 _gl?.Dispose();
                 _gl = null;
             }
@@ -98,6 +106,9 @@ namespace PixelForge.Engine.Core
 
         /// <summary>Called by the window render event; <paramref name="delta"/> is elapsed seconds.</summary>
         protected virtual void OnRender(double delta) { }
+
+        /// <summary>Called when a key is pressed on any keyboard.</summary>
+        protected virtual void OnKeyDown(Key key) { }
 
         /// <summary>Called before the OpenGL context is released.</summary>
         protected virtual void OnUnload() { }

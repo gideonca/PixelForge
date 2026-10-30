@@ -126,6 +126,48 @@ public static class ChunkMesher
         };
     }
 
+    /// <summary>
+    /// Builds line segments outlining one chunk, with its corners extended
+    /// <paramref name="verticalExtent"/> blocks above and below the chunk.
+    /// </summary>
+    public static ChunkMesh BuildBoundary(float verticalExtent = Chunk.ChunkSize * 2)
+    {
+        var edges = new List<Vector3>();
+        float size = Chunk.ChunkSize;
+
+        // The chunk's own bounding box.
+        foreach (var (first, second) in BlockEdges)
+        {
+            edges.Add(BlockCorners[first] * size);
+            edges.Add(BlockCorners[second] * size);
+        }
+
+        // Y coordinates of the far bottom and far top of the extended column.
+        float bottom = -verticalExtent;
+        float top = size + verticalExtent;
+        (float X, float Z)[] corners = [(0, 0), (size, 0), (size, size), (0, size)];
+
+        for (int i = 0; i < corners.Length; i++)
+        {
+            var (x, z) = corners[i];
+            var (nextX, nextZ) = corners[(i + 1) % corners.Length];
+
+            // Vertical lines from the chunk's bottom and top out to the column's ends.
+            edges.Add(new Vector3(x, 0, z));
+            edges.Add(new Vector3(x, bottom, z));
+            edges.Add(new Vector3(x, size, z));
+            edges.Add(new Vector3(x, top, z));
+
+            // Rectangles closing off the bottom and top of the column.
+            edges.Add(new Vector3(x, bottom, z));
+            edges.Add(new Vector3(nextX, bottom, nextZ));
+            edges.Add(new Vector3(x, top, z));
+            edges.Add(new Vector3(nextX, top, nextZ));
+        }
+
+        return new ChunkMesh([], []) { BlockEdges = edges.ToArray() };
+    }
+
     private static void AddBlockEdges(Vector3 blockPosition, List<Vector3> positions)
     {
         // Store endpoints in pairs so OpenGL can draw the outline buffer as independent lines.
