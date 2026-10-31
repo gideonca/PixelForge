@@ -9,6 +9,7 @@ public sealed class Chunk
     // Blocks are stored in z-major slices, with x varying fastest.
     private readonly BlockType[] _blocks = 
         new BlockType[ChunkSize * ChunkSize * ChunkSize];
+    private readonly float[] _terrainNoise = new float[ChunkSize * ChunkSize];
 
     /// <summary>Returns the block at the given local chunk coordinates.</summary>
     public BlockType GetBlock(int x, int y, int z) => 
@@ -17,6 +18,12 @@ public sealed class Chunk
     /// <summary>Sets the block at the given local chunk coordinates.</summary>
     public void SetBlock(int x, int y, int z, BlockType block) => 
         _blocks[Index(x, y, z)] = block;
+
+    internal float GetTerrainNoise(int x, int z) =>
+        _terrainNoise[x + ChunkSize * z];
+
+    internal void SetTerrainNoise(int x, int z, float noise) =>
+        _terrainNoise[x + ChunkSize * z] = noise;
 
     private static int Index(int x, int y, int z)
     {

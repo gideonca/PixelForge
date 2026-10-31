@@ -15,8 +15,7 @@ namespace PixelForge.Engine.Rendering;
 /// </summary>
 public sealed class ChunkPreviewGame : Game
 {
-    private readonly ChunkMesh _mesh;
-    private readonly int _chunkCount;
+    private readonly List<(ChunkMesh Mesh, Vector3 Offset)> _chunks = [];
     private readonly int _columns;
     private const float MoveSpeed = 20f;
     private const float FastMultiplier = 3f;
@@ -27,10 +26,11 @@ public sealed class ChunkPreviewGame : Game
 
     /// <summary>
     /// Creates a preview of <paramref name="chunkCount"/> chunks, each using the supplied mesh
-    /// or a generated solid chunk, arranged in a grid on the XZ plane.
+    /// or terrain generated from <paramref name="seed"/>, arranged in a grid on the XZ plane.
     /// </summary>
     public ChunkPreviewGame(
         ILogger<Game> logger,
+        string seed,
         ChunkMesh? mesh = null,
         int chunkCount = 4,
         string title = "PixelForge Sandbox",
@@ -39,14 +39,26 @@ public sealed class ChunkPreviewGame : Game
         : base(title, width, height, logger)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(chunkCount, 1);
-        _chunkCount = chunkCount;
         // A square-ish grid keeps the layout compact for any count.
         _columns = (int)Math.Ceiling(Math.Sqrt(chunkCount));
         int rows = (int)Math.Ceiling(chunkCount / (double)_columns);
         float gridExtent = Math.Max(_columns, rows) * Chunk.ChunkSize;
 
-        // Prepare the mesh before the graphics context is created; GPU upload happens in OnLoad.
-        _mesh = mesh ?? ChunkMesher.Build(TerrainGenerator.GenerateSolidChunk());
+        // Generate adjacent chunks from world coordinates so their terrain and shading vary
+        // continuously across the preview grid. GPU upload happens later in OnLoad.
+        for (int i = 0; i < chunkCount; i++)
+        {
+            int chunkX = i % _columns;
+            int chunkZ = i / _columns;
+            var chunkMesh = mesh ?? ChunkMesher.Build(
+                TerrainGenerator.GenerateTerrainChunk(seed, chunkX, chunkZ));
+            var offset = new Vector3(
+                chunkX * Chunk.ChunkSize,
+                0,
+                chunkZ * Chunk.ChunkSize);
+            _chunks.Add((chunkMesh, offset));
+        }
+
         _camera = new FlyCamera
         {
             // Start outside the grid, centered on it and looking toward it from slightly above.
@@ -64,15 +76,8 @@ public sealed class ChunkPreviewGame : Game
     {
         Gl.ClearColor(0.08f, 0.11f, 0.16f, 1f);
         _renderer = new ChunkRenderer(Gl);
-        for (int i = 0; i < _chunkCount; i++)
-        {
-            // Place chunks side by side in row-major order.
-            var offset = new Vector3(
-                i % _columns * Chunk.ChunkSize,
-                0,
-                i / _columns * Chunk.ChunkSize);
-            _renderer.Add(_mesh, offset);
-        }
+        foreach (var (mesh, offset) in _chunks)
+            _renderer.Add(mesh, offset);
     }
 
     protected override void OnKeyDown(Key key)

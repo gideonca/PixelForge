@@ -9,6 +9,9 @@ public sealed record ChunkMesh(
     Vector3[] Positions,
     uint[] Indices)
 {
+    /// <summary>Per-vertex surface colors; empty for meshes without explicit color data.</summary>
+    public Vector3[] Colors { get; init; } = [];
+
     /// <summary>
     /// Line endpoint positions for block outlines; each consecutive pair forms one edge.
     /// Empty by default for meshes that do not include debug outlines.

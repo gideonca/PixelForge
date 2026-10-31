@@ -1,3 +1,4 @@
+using System.Numerics;
 using PixelForge.Engine.Meshing;
 using Silk.NET.OpenGL;
 
@@ -14,6 +15,7 @@ public sealed unsafe class GpuMesh : IDisposable
     private readonly uint _edgeVertexCount;
     private uint _vertexArray;
     private uint _vertexBuffer;
+    private uint _colorBuffer;
     private uint _indexBuffer;
     private uint _edgeVertexArray;
     private uint _edgeVertexBuffer;
@@ -22,10 +24,24 @@ public sealed unsafe class GpuMesh : IDisposable
     public GpuMesh(GL gl, ChunkMesh mesh)
     {
         _gl = gl;
+        Vector3[] colors = mesh.Colors;
+        if (colors.Length == 0)
+        {
+            colors = new Vector3[mesh.Positions.Length];
+            Array.Fill(colors, Vector3.One);
+        }
+        else if (colors.Length != mesh.Positions.Length)
+        {
+            throw new ArgumentException(
+                "The mesh must provide one color per vertex.",
+                nameof(mesh));
+        }
+
         _indexCount = (uint)mesh.Indices.Length;
 
         _vertexArray = gl.GenVertexArray();
         _vertexBuffer = gl.GenBuffer();
+        _colorBuffer = gl.GenBuffer();
         _indexBuffer = gl.GenBuffer();
 
         gl.BindVertexArray(_vertexArray);
@@ -38,6 +54,11 @@ public sealed unsafe class GpuMesh : IDisposable
 
         gl.EnableVertexAttribArray(0);
         gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), (void*)0);
+
+        gl.BindBuffer(BufferTargetARB.ArrayBuffer, _colorBuffer);
+        gl.BufferData(BufferTargetARB.ArrayBuffer, colors, BufferUsageARB.StaticDraw);
+        gl.EnableVertexAttribArray(1);
+        gl.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 3 * sizeof(float), (void*)0);
 
         gl.BindVertexArray(0);
 
@@ -80,9 +101,10 @@ public sealed unsafe class GpuMesh : IDisposable
         if (_vertexArray != 0)
         {
             _gl.DeleteBuffer(_vertexBuffer);
+            _gl.DeleteBuffer(_colorBuffer);
             _gl.DeleteBuffer(_indexBuffer);
             _gl.DeleteVertexArray(_vertexArray);
-            _vertexArray = _vertexBuffer = _indexBuffer = 0;
+            _vertexArray = _vertexBuffer = _colorBuffer = _indexBuffer = 0;
         }
 
         if (_edgeVertexArray != 0)

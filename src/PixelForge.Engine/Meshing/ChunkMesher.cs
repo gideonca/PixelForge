@@ -78,6 +78,7 @@ public static class ChunkMesher
         ArgumentNullException.ThrowIfNull(chunk);
 
         var positions = new List<Vector3>();
+        var colors = new List<Vector3>();
         var indices = new List<uint>();
         var blockEdges = new List<Vector3>();
 
@@ -111,7 +112,10 @@ public static class ChunkMesher
                         AddFace(
                             blockPosition,
                             face,
+                            chunk.GetBlock(x, y, z),
+                            chunk.GetTerrainNoise(x, z),
                             positions,
+                            colors,
                             indices);
                     }
                 }
@@ -122,7 +126,8 @@ public static class ChunkMesher
             positions.ToArray(),
             indices.ToArray())
         {
-            BlockEdges = blockEdges.ToArray()
+            BlockEdges = blockEdges.ToArray(),
+            Colors = colors.ToArray()
         };
     }
 
@@ -196,14 +201,19 @@ public static class ChunkMesher
     private static void AddFace(
         Vector3 blockPosition,
         int face,
+        BlockType block,
+        float noise,
         List<Vector3> positions,
+        List<Vector3> colors,
         List<uint> indices)
     {
         uint firstVertex = (uint)positions.Count;
+        Vector3 color = GetBlockColor(block) * GetNoiseShade(noise) * GetFaceShade(face);
 
         foreach (Vector3 corner in FaceCorners[face])
         {
             positions.Add(blockPosition + corner);
+            colors.Add(color);
         }
 
         // First triangle.
@@ -216,4 +226,22 @@ public static class ChunkMesher
         indices.Add(firstVertex + 2);
         indices.Add(firstVertex + 3);
     }
+
+    private static Vector3 GetBlockColor(BlockType block) => block switch
+    {
+        BlockType.Grass => new Vector3(0.31f, 0.68f, 0.24f),
+        BlockType.Dirt => new Vector3(0.48f, 0.31f, 0.17f),
+        BlockType.Stone => new Vector3(0.48f, 0.50f, 0.53f),
+        BlockType.Water => new Vector3(0.12f, 0.36f, 0.78f),
+        _ => Vector3.One
+    };
+
+    private static float GetNoiseShade(float noise) => 0.68f + (noise + 1f) * 0.32f;
+
+    private static float GetFaceShade(int face) => face switch
+    {
+        2 => 0.62f,
+        3 => 1f,
+        _ => 0.82f
+    };
 }

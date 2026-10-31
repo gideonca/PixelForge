@@ -17,13 +17,17 @@ game systems from the ground up; it is not yet a general-purpose game engine.
 - `Game` creates an OpenGL 3.3 window and provides load, update, render, input,
   and unload hooks.
 - A chunk stores a 16 × 16 × 16 grid of blocks. The current generator can create
-  an empty chunk or a chunk filled with dirt.
+  an empty chunk, a chunk filled with dirt, or seeded terrain with grass, dirt,
+  and stone layers. Terrain generation accepts a 32-character decimal or
+  hexadecimal seed and produces the same terrain for the same seed and chunk
+  coordinates. The renderer colors blocks by material and varies their shading
+  with the generated noise.
 - The chunk mesher emits exposed block faces and per-block outline geometry.
   The renderer uploads and draws those meshes and can show chunk boundaries.
 - `FlyCamera` provides free movement and perspective projection.
 
-The sandbox currently shows four solid chunks arranged in a grid. Its controls
-are:
+The sandbox generates adjacent terrain chunks from the seed provided at startup
+and displays them in a grid. Its controls are:
 
 | Input | Action |
 | --- | --- |
@@ -32,6 +36,13 @@ are:
 | Left Shift | Move faster while held |
 | Hold right mouse button and move mouse | Look around |
 | F6 | Toggle chunk boundary outlines |
+
+Generate a terrain chunk in engine code with a 32-character seed:
+
+```csharp
+Chunk terrain = TerrainGenerator.GenerateTerrainChunk(
+    "0123456789ABCDEF0123456789ABCDEF");
+```
 
 ## Getting started
 
@@ -42,17 +53,17 @@ driver. From the repository root, build the solution:
 dotnet build PixelForge.slnx
 ```
 
-Run the sandbox to open the chunk preview:
+Run the sandbox with a 32-character decimal or hexadecimal seed:
 
 ```sh
-dotnet run --project src/PixelForge.Sandbox
+dotnet run --project src/PixelForge.Sandbox -- A3F09C21D7B8465E02A19F6C4D8B7350
 ```
 
 ## Scope and next steps
 
 This is a rendering prototype rather than a complete voxel game engine. Chunk
 meshing currently treats space outside each chunk as air, and the sandbox uses
-solid test chunks rather than varied terrain. Terrain streaming, persistence,
+solid test chunks rather than seeded terrain. Terrain streaming, persistence,
 an asset pipeline, a game-object/component model, and a fixed-update simulation
 are not implemented yet.
 

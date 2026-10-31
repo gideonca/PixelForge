@@ -7,10 +7,10 @@ namespace PixelForge.Engine.Rendering;
 /// <summary>Draws chunk meshes and optional debug block outlines from a camera.</summary>
 public sealed class ChunkRenderer : IDisposable
 {
-    // The solid pass shades block faces using their local position.
     private const string VertexSource = """
         #version 330 core
         layout (location = 0) in vec3 aPosition;
+        layout (location = 1) in vec3 aColor;
         uniform mat4 uViewProjection;
         uniform mat4 uModel;
         out vec3 vColor;
@@ -18,10 +18,7 @@ public sealed class ChunkRenderer : IDisposable
         void main()
         {
             gl_Position = uViewProjection * uModel * vec4(aPosition, 1.0);
-            vColor = vec3(
-                0.24 + aPosition.y * 0.018,
-                0.48 + aPosition.y * 0.018,
-                0.18 + aPosition.x * 0.012);
+            vColor = aColor;
         }
         """;
 
