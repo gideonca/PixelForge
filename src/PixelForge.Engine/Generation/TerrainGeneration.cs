@@ -27,8 +27,12 @@ public static class TerrainGenerator
     private const float CaveNoiseScale = 0.085f;
     // Limits how far the cave's noise-driven path wanders from its seeded entrance.
     private const float CavePathWander = 5f;
+    // Gives side passages room to curve away from their junctions.
+    private const float CaveBranchWander = 7f;
     // Sets the base radius of connected cave passages in blocks.
     private const float CaveTunnelRadius = 3f;
+    // Lets cave walls widen and narrow with the cave noise field.
+    private const float CaveRadiusVariation = 0.8f;
     // Adds finer bends to the cave path and shape without making tunnels jagged.
     private const int CaveOctaveCount = 3;
     // Limits horizontal and elevation coordinates to -256 (inclusive) through 256 (exclusive).
@@ -124,7 +128,7 @@ public static class TerrainGenerator
         int maximumCaveLevel = Math.Max(minimumCaveLevel + 1, worldHeight / 4);
         int caveLevel = caveRandom.Next(minimumCaveLevel, maximumCaveLevel + 1);
         // Build randomized side passages that connect directly to the winding main tunnel.
-        int branchCount = Math.Clamp(horizontalChunkCount, 2, 6);
+        int branchCount = Math.Clamp(horizontalChunkCount * 2, 4, 12);
         var branches = new CaveBranch[branchCount];
         for (int i = 0; i < branches.Length; i++)
         {
@@ -137,17 +141,35 @@ public static class TerrainGenerator
                 branchStartY + branchDirection * branchLength,
                 2,
                 worldWidth - 3);
+            if (branchEndY == branchStartY)
+            {
+                branchEndY = Math.Clamp(
+                    branchStartY - branchDirection * branchLength,
+                    2,
+                    worldWidth - 3);
+            }
             branches[i] = new CaveBranch(
                 branchX,
                 branchStartY,
                 branchEndY,
-                caveRandom.Next(-2, 3));
+                caveRandom.Next(-4, 5),
+                caveRandom.Next(-10_000, 10_001),
+                caveRandom.Next(-10_000, 10_001));
         }
         // Align each entrance shaft with the winding main tunnel so it joins the network.
         int[] entranceYs = entranceXs
             .Select(x => (int)MathF.Round(GetCaveTunnelCenterY(
                 x, worldWidth, caveLevel, caveSeedLow, caveSeedHigh)))
             .ToArray();
+        var branchCentersByY = new (float X, float Z)[Chunk.ChunkSize][];
+        for (int y = 0; y < Chunk.ChunkSize; y++)
+        {
+            float worldBlockY = chunkY * Chunk.ChunkSize + y;
+            branchCentersByY[y] = branches
+                .Select(branch => GetCaveBranchCenter(
+                    branch, worldBlockY, caveLevel, caveSeedLow, caveSeedHigh))
+                .ToArray();
+        }
         // Allocate the block grid that this method will fill.
         var chunk = new Chunk();
 
@@ -202,21 +224,28 @@ public static class TerrainGenerator
                         caveSeedHigh);
                     float tunnelDy = worldBlockY - tunnelCenterY;
                     float tunnelDz = worldZ - caveLevel;
-                    float tunnelRadius = CaveTunnelRadius + caveShape * 0.35f;
+                    float tunnelRadius = CaveTunnelRadius + caveShape * CaveRadiusVariation;
                     bool inMainTunnel =
                         tunnelDy * tunnelDy + tunnelDz * tunnelDz <= tunnelRadius * tunnelRadius;
-                    // Carve randomized side passages that meet the main tunnel at their starts.
+                    // Carve curved side passages that meet the main tunnel at their starts.
                     bool inBranchTunnel = false;
-                    foreach (CaveBranch branch in branches)
+                    for (int branchIndex = 0; branchIndex < branches.Length; branchIndex++)
                     {
-                        int branchDz = worldZ - (caveLevel + branch.LevelOffset);
-                        int branchDx = (int)worldBlockX - branch.X;
+                        CaveBranch branch = branches[branchIndex];
                         int minimumBranchY = Math.Min(branch.StartY, branch.EndY);
                         int maximumBranchY = Math.Max(branch.StartY, branch.EndY);
+                        if (worldBlockY < minimumBranchY - tunnelRadius ||
+                            worldBlockY > maximumBranchY + tunnelRadius)
+                        {
+                            continue;
+                        }
+
+                        (float branchCenterX, float branchCenterZ) = branchCentersByY[y][branchIndex];
+                        float branchDx = worldBlockX - branchCenterX;
+                        float branchDz = worldZ - branchCenterZ;
+                        float branchRadius = CaveTunnelRadius + caveShape * CaveRadiusVariation;
                         if (branchDx * branchDx + branchDz * branchDz <=
-                                tunnelRadius * tunnelRadius &&
-                            worldBlockY >= minimumBranchY - tunnelRadius &&
-                            worldBlockY <= maximumBranchY + tunnelRadius)
+                            branchRadius * branchRadius)
                         {
                             inBranchTunnel = true;
                             break;
@@ -256,10 +285,46 @@ public static class TerrainGenerator
     }
 
     private readonly record struct CaveBranch(
-        int X,
+        int StartX,
         int StartY,
         int EndY,
-        int LevelOffset);
+        int LevelOffset,
+        int NoiseOffsetX,
+        int NoiseOffsetZ);
+
+    // Returns a smoothly wandering branch centerline that joins the main passage at its start.
+    private static (float X, float Z) GetCaveBranchCenter(
+        CaveBranch branch,
+        float worldY,
+        int caveLevel,
+        ulong seedLow,
+        ulong seedHigh)
+    {
+        float progress = Math.Clamp(
+            (worldY - branch.StartY) / (branch.EndY - branch.StartY),
+            0f,
+            1f);
+        float noiseX = GetCaveBranchNoise(branch, progress, seedLow, seedHigh);
+        float noiseZ = GetCaveBranchNoise(branch, progress, seedLow, seedHigh, swapOffsets: true);
+
+        return (
+            branch.StartX + noiseX * CaveBranchWander * progress,
+            caveLevel + branch.LevelOffset * progress +
+                noiseZ * CaveBranchWander * progress);
+    }
+
+    private static float GetCaveBranchNoise(
+        CaveBranch branch,
+        float progress,
+        ulong seedLow,
+        ulong seedHigh,
+        bool swapOffsets = false) =>
+        FractalCaveNoise(
+            progress * 2.5f,
+            (swapOffsets ? branch.NoiseOffsetZ : branch.NoiseOffsetX) * CaveNoiseScale,
+            (swapOffsets ? branch.NoiseOffsetX : branch.NoiseOffsetZ) * CaveNoiseScale,
+            seedLow,
+            seedHigh);
 
     // Returns the seeded, gently winding centerline shared by tunnels and entrances.
     private static float GetCaveTunnelCenterY(
