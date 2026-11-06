@@ -62,8 +62,8 @@ public static class TerrainGenerator
     }
 
     /// <summary>
-    /// Creates a terrain chunk whose height map is determined by a 32-character decimal or
-    /// hexadecimal seed and the chunk's world coordinates. X and Y are horizontal; Z is elevation.
+    /// Creates a terrain chunk whose height map is determined by a 32-digit numeric seed and
+    /// the chunk's world coordinates. X and Y are horizontal; Z is elevation.
     /// Non-cave terrain below elevation zero is filled with water.
     /// </summary>
     public static Chunk GenerateTerrainChunk(
@@ -83,24 +83,23 @@ public static class TerrainGenerator
         ArgumentOutOfRangeException.ThrowIfGreaterThan(chunkY, MaxChunkY);
         ArgumentOutOfRangeException.ThrowIfLessThan(chunkZ, MinChunkZ);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(chunkZ, MaxChunkZ);
-        // Require exactly 32 hexadecimal characters; decimal digits are a valid subset.
-        if (seed.Length != 32 || !seed.All(Uri.IsHexDigit))
+        // Require exactly 32 numeric characters.
+        if (seed.Length != 32 || !seed.All(char.IsAsciiDigit))
         {
             // Report invalid input explicitly instead of generating terrain from a bad seed.
             throw new ArgumentException(
-                "The seed must contain exactly 32 decimal or hexadecimal digits.",
+                "The seed must contain exactly 32 numeric digits (0-9).",
                 nameof(seed));
         }
 
-        // Normalize letter case so uppercase and lowercase hex spellings produce identical terrain.
-        byte[] seedHash = SHA256.HashData(Encoding.ASCII.GetBytes(seed.ToUpperInvariant()));
+        // Hash the numeric seed to derive deterministic terrain noise.
+        byte[] seedHash = SHA256.HashData(Encoding.ASCII.GetBytes(seed));
         // Use the first eight hash bytes as part of the coordinate hash's seed.
         ulong seedLow = BinaryPrimitives.ReadUInt64LittleEndian(seedHash);
         // Use the next eight bytes as additional seed material for the coordinate hash.
         ulong seedHigh = BinaryPrimitives.ReadUInt64LittleEndian(seedHash.AsSpan(sizeof(ulong)));
         // Derive an independent cave seed from only the second half of the user-provided seed.
-        byte[] caveSeedHash = SHA256.HashData(
-            Encoding.ASCII.GetBytes(seed[(seed.Length / 2)..].ToUpperInvariant()));
+        byte[] caveSeedHash = SHA256.HashData(Encoding.ASCII.GetBytes(seed[(seed.Length / 2)..]));
         // Use the first cave hash word so cave shapes differ from the surface heightmap.
         ulong caveSeedLow = BinaryPrimitives.ReadUInt64LittleEndian(caveSeedHash);
         // Use another cave hash word to diversify the 3D cave lattice values.
