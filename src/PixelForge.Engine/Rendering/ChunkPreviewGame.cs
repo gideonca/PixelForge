@@ -11,7 +11,8 @@ namespace PixelForge.Engine.Rendering;
 
 /// <summary>
 /// A sample game that generates and uploads a chunk preview you can fly around.
-/// Controls: W/A/S/D move, Q/E move down/up, Shift is faster, hold the right mouse button to look, F6 toggles chunk boundaries.
+/// Controls: W forward, S back, A left, D right, Q/E down/up; Shift is faster.
+/// Hold the right mouse button to look; F6 toggles chunk boundaries.
 /// </summary>
 public sealed class ChunkPreviewGame : Game
 {
@@ -94,7 +95,7 @@ public sealed class ChunkPreviewGame : Game
         if (!IsMouseButtonDown(MouseButton.Right))
             return;
 
-        _camera.Yaw += delta.X * LookSensitivity;
+        _camera.Yaw -= delta.X * LookSensitivity;
         _camera.Pitch -= delta.Y * LookSensitivity;
     }
 

@@ -40,8 +40,8 @@ public sealed class FlyCamera
         -MathF.Cos(Pitch) * MathF.Cos(Yaw),
         MathF.Sin(Pitch));
 
-    /// <summary>Gets the unit vector pointing to the camera's right, level with the ground.</summary>
-    public Vector3 Right => new(MathF.Cos(Yaw), MathF.Sin(Yaw), 0);
+    /// <summary>Gets the unit vector pointing to the camera's screen-right, level with the ground.</summary>
+    public Vector3 Right => new(-MathF.Cos(Yaw), -MathF.Sin(Yaw), 0);
 
     /// <summary>Combines the camera's view and perspective projection matrices.</summary>
     public Matrix4x4 ViewProjection
