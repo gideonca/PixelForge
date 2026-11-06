@@ -16,7 +16,6 @@ namespace PixelForge.Engine.Rendering;
 public sealed class ChunkPreviewGame : Game
 {
     private readonly List<(ChunkMesh Mesh, Vector3 Offset)> _chunks = [];
-    private readonly int _columns;
     private const float MoveSpeed = 20f;
     private const float FastMultiplier = 3f;
     private const float LookSensitivity = 0.003f;
@@ -25,48 +24,50 @@ public sealed class ChunkPreviewGame : Game
     private ChunkRenderer? _renderer;
 
     /// <summary>
-    /// Creates a preview of <paramref name="chunkCount"/> chunks, each using the supplied mesh
-    /// or terrain generated from <paramref name="seed"/>, arranged in a grid on the XZ plane.
+    /// Creates a preview with <paramref name="chunksPerAxis"/> chunks along each horizontal axis
+    /// and one additional chunk below elevation zero, using the supplied mesh or generated terrain.
     /// </summary>
     public ChunkPreviewGame(
         ILogger<Game> logger,
         string seed,
         ChunkMesh? mesh = null,
-        int chunkCount = 4,
+        int chunksPerAxis = 4,
         string title = "PixelForge Sandbox",
         int width = 1200,
         int height = 1000)
         : base(title, width, height, logger)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThan(chunkCount, 1);
-        // A square-ish grid keeps the layout compact for any count.
-        _columns = (int)Math.Ceiling(Math.Sqrt(chunkCount));
-        int rows = (int)Math.Ceiling(chunkCount / (double)_columns);
-        float gridExtent = Math.Max(_columns, rows) * Chunk.ChunkSize;
+        ArgumentOutOfRangeException.ThrowIfLessThan(chunksPerAxis, 1);
+        float gridExtent = chunksPerAxis * Chunk.ChunkSize;
 
-        // Generate adjacent chunks from world coordinates so their terrain and shading vary
-        // continuously across the preview grid. GPU upload happens later in OnLoad.
-        for (int i = 0; i < chunkCount; i++)
+        // Generate the horizontal chunk grid plus one submerged elevation layer. GPU upload happens later.
+        const int firstChunkZ = -1;
+        for (int chunkY = 0; chunkY < chunksPerAxis; chunkY++)
         {
-            int chunkX = i % _columns;
-            int chunkZ = i / _columns;
-            var chunkMesh = mesh ?? ChunkMesher.Build(
-                TerrainGenerator.GenerateTerrainChunk(seed, chunkX, chunkZ));
-            var offset = new Vector3(
-                chunkX * Chunk.ChunkSize,
-                0,
-                chunkZ * Chunk.ChunkSize);
-            _chunks.Add((chunkMesh, offset));
+            for (int chunkZ = firstChunkZ; chunkZ < chunksPerAxis; chunkZ++)
+            {
+                for (int chunkX = 0; chunkX < chunksPerAxis; chunkX++)
+                {
+                    var chunkMesh = mesh ?? ChunkMesher.Build(
+                        TerrainGenerator.GenerateTerrainChunk(
+                            seed, chunkX, chunkY, chunkZ, chunksPerAxis, chunksPerAxis));
+                    var offset = new Vector3(
+                        chunkX * Chunk.ChunkSize,
+                        chunkY * Chunk.ChunkSize,
+                        chunkZ * Chunk.ChunkSize);
+                    _chunks.Add((chunkMesh, offset));
+                }
+            }
         }
 
         _camera = new FlyCamera
         {
-            // Start outside the grid, centered on it and looking toward it from slightly above.
+            // Start outside the chunk grid, above its center.
             Position = new Vector3(
-                _columns * Chunk.ChunkSize / 2f,
-                Chunk.ChunkSize,
-                rows * Chunk.ChunkSize + gridExtent),
-            Pitch = -0.25f,
+                gridExtent / 2f,
+                gridExtent * 1.5f,
+                gridExtent),
+            Pitch = -MathF.Atan(0.5f),
             FarPlane = Math.Max(500f, gridExtent * 6f),
             AspectRatio = width / (float)height
         };
@@ -105,8 +106,8 @@ public sealed class ChunkPreviewGame : Game
         if (IsKeyDown(Key.S)) direction -= _camera.Forward;
         if (IsKeyDown(Key.D)) direction += _camera.Right;
         if (IsKeyDown(Key.A)) direction -= _camera.Right;
-        if (IsKeyDown(Key.E)) direction += Vector3.UnitY;
-        if (IsKeyDown(Key.Q)) direction -= Vector3.UnitY;
+        if (IsKeyDown(Key.E)) direction += Vector3.UnitZ;
+        if (IsKeyDown(Key.Q)) direction -= Vector3.UnitZ;
 
         if (direction == Vector3.Zero)
             return;

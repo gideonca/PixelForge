@@ -19,11 +19,11 @@ public sealed class Chunk
     public void SetBlock(int x, int y, int z, BlockType block) => 
         _blocks[Index(x, y, z)] = block;
 
-    internal float GetTerrainNoise(int x, int z) =>
-        _terrainNoise[x + ChunkSize * z];
+    internal float GetTerrainNoise(int x, int y) =>
+        _terrainNoise[x + ChunkSize * y];
 
-    internal void SetTerrainNoise(int x, int z, float noise) =>
-        _terrainNoise[x + ChunkSize * z] = noise;
+    internal void SetTerrainNoise(int x, int y, float noise) =>
+        _terrainNoise[x + ChunkSize * y] = noise;
 
     private static int Index(int x, int y, int z)
     {

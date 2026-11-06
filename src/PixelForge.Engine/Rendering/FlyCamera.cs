@@ -12,7 +12,7 @@ public sealed class FlyCamera
     /// <summary>Gets or sets the camera's world-space position.</summary>
     public Vector3 Position { get; set; }
 
-    /// <summary>Gets or sets the horizontal angle in radians. Zero looks toward negative Z.</summary>
+    /// <summary>Gets or sets the horizontal angle in radians. Zero looks toward negative Y.</summary>
     public float Yaw { get; set; }
 
     /// <summary>Gets or sets the vertical angle in radians, clamped to avoid looking straight up or down.</summary>
@@ -37,18 +37,18 @@ public sealed class FlyCamera
     /// <summary>Gets the unit vector the camera is looking along.</summary>
     public Vector3 Forward => new(
         MathF.Cos(Pitch) * MathF.Sin(Yaw),
-        MathF.Sin(Pitch),
-        -MathF.Cos(Pitch) * MathF.Cos(Yaw));
+        -MathF.Cos(Pitch) * MathF.Cos(Yaw),
+        MathF.Sin(Pitch));
 
     /// <summary>Gets the unit vector pointing to the camera's right, level with the ground.</summary>
-    public Vector3 Right => new(MathF.Cos(Yaw), 0, MathF.Sin(Yaw));
+    public Vector3 Right => new(MathF.Cos(Yaw), MathF.Sin(Yaw), 0);
 
     /// <summary>Combines the camera's view and perspective projection matrices.</summary>
     public Matrix4x4 ViewProjection
     {
         get
         {
-            var view = Matrix4x4.CreateLookAt(Position, Position + Forward, Vector3.UnitY);
+            var view = Matrix4x4.CreateLookAt(Position, Position + Forward, Vector3.UnitZ);
             var projection = Matrix4x4.CreatePerspectiveFieldOfView(
                 FieldOfView, AspectRatio, NearPlane, FarPlane);
             return view * projection;

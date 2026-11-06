@@ -11,10 +11,10 @@ public static class ChunkMesher
     [
         (-1,  0,  0), // Left
         ( 1,  0,  0), // Right
-        ( 0, -1,  0), // Bottom
-        ( 0,  1,  0), // Top
-        ( 0,  0, -1), // Negative Z
-        ( 0,  0,  1)  // Positive Z
+        ( 0, -1,  0), // Negative Y
+        ( 0,  1,  0), // Positive Y
+        ( 0,  0, -1), // Bottom
+        ( 0,  0,  1)  // Top
     ];
 
     // Corners are counterclockwise when viewed from outside.
@@ -32,25 +32,25 @@ public static class ChunkMesher
             new(1, 1, 0), new(1, 1, 1)
         ],
 
-        // Bottom
+        // Negative Y
         [
             new(0, 0, 0), new(1, 0, 0),
             new(1, 0, 1), new(0, 0, 1)
         ],
 
-        // Top
+        // Positive Y
         [
             new(0, 1, 0), new(0, 1, 1),
             new(1, 1, 1), new(1, 1, 0)
         ],
 
-        // Negative Z
+        // Bottom
         [
             new(1, 0, 0), new(0, 0, 0),
             new(0, 1, 0), new(1, 1, 0)
         ],
 
-        // Positive Z
+        // Top
         [
             new(0, 0, 1), new(1, 0, 1),
             new(1, 1, 1), new(0, 1, 1)
@@ -113,7 +113,7 @@ public static class ChunkMesher
                             blockPosition,
                             face,
                             chunk.GetBlock(x, y, z),
-                            chunk.GetTerrainNoise(x, z),
+                            chunk.GetTerrainNoise(x, y),
                             positions,
                             colors,
                             indices);
@@ -133,7 +133,7 @@ public static class ChunkMesher
 
     /// <summary>
     /// Builds line segments outlining one chunk, with its corners extended
-    /// <paramref name="verticalExtent"/> blocks above and below the chunk.
+    /// <paramref name="verticalExtent"/> blocks above and below the chunk along Z.
     /// </summary>
     public static ChunkMesh BuildBoundary(float verticalExtent = Chunk.ChunkSize * 2)
     {
@@ -147,27 +147,27 @@ public static class ChunkMesher
             edges.Add(BlockCorners[second] * size);
         }
 
-        // Y coordinates of the far bottom and far top of the extended column.
+        // Z coordinates of the far bottom and far top of the extended column.
         float bottom = -verticalExtent;
         float top = size + verticalExtent;
-        (float X, float Z)[] corners = [(0, 0), (size, 0), (size, size), (0, size)];
+        (float X, float Y)[] corners = [(0, 0), (size, 0), (size, size), (0, size)];
 
         for (int i = 0; i < corners.Length; i++)
         {
-            var (x, z) = corners[i];
-            var (nextX, nextZ) = corners[(i + 1) % corners.Length];
+            var (x, y) = corners[i];
+            var (nextX, nextY) = corners[(i + 1) % corners.Length];
 
             // Vertical lines from the chunk's bottom and top out to the column's ends.
-            edges.Add(new Vector3(x, 0, z));
-            edges.Add(new Vector3(x, bottom, z));
-            edges.Add(new Vector3(x, size, z));
-            edges.Add(new Vector3(x, top, z));
+            edges.Add(new Vector3(x, y, 0));
+            edges.Add(new Vector3(x, y, bottom));
+            edges.Add(new Vector3(x, y, size));
+            edges.Add(new Vector3(x, y, top));
 
             // Rectangles closing off the bottom and top of the column.
-            edges.Add(new Vector3(x, bottom, z));
-            edges.Add(new Vector3(nextX, bottom, nextZ));
-            edges.Add(new Vector3(x, top, z));
-            edges.Add(new Vector3(nextX, top, nextZ));
+            edges.Add(new Vector3(x, y, bottom));
+            edges.Add(new Vector3(nextX, nextY, bottom));
+            edges.Add(new Vector3(x, y, top));
+            edges.Add(new Vector3(nextX, nextY, top));
         }
 
         return new ChunkMesh([], []) { BlockEdges = edges.ToArray() };
@@ -240,8 +240,8 @@ public static class ChunkMesher
 
     private static float GetFaceShade(int face) => face switch
     {
-        2 => 0.62f,
-        3 => 1f,
+        4 => 0.62f,
+        5 => 1f,
         _ => 0.82f
     };
 }
