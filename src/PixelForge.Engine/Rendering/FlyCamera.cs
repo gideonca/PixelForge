@@ -5,6 +5,9 @@ namespace PixelForge.Engine.Rendering;
 /// <summary>A free camera that is moved and rotated directly instead of orbiting a target.</summary>
 public sealed class FlyCamera
 {
+    private const float MoveSpeed = 20f;
+    private const float FastMultiplier = 3f;
+    private const float LookSensitivity = 0.003f;
     private const float MaxPitch = 1.553f; // Just under 90 degrees, to avoid flipping at the poles.
 
     private float _pitch;
@@ -42,6 +45,23 @@ public sealed class FlyCamera
 
     /// <summary>Gets the unit vector pointing to the camera's screen-right, level with the ground.</summary>
     public Vector3 Right => new(-MathF.Cos(Yaw), -MathF.Sin(Yaw), 0);
+
+    /// <summary>Moves in the given direction, normalizing it to keep diagonal movement consistent.</summary>
+    public void Move(Vector3 direction, float elapsedSeconds, bool moveFast = false)
+    {
+        if (direction == Vector3.Zero)
+            return;
+
+        float speed = moveFast ? MoveSpeed * FastMultiplier : MoveSpeed;
+        Position += Vector3.Normalize(direction) * speed * elapsedSeconds;
+    }
+
+    /// <summary>Applies mouse-look movement to the camera's yaw and pitch.</summary>
+    public void Look(Vector2 mouseDelta)
+    {
+        Yaw -= mouseDelta.X * LookSensitivity;
+        Pitch -= mouseDelta.Y * LookSensitivity;
+    }
 
     /// <summary>Combines the camera's view and perspective projection matrices.</summary>
     public Matrix4x4 ViewProjection

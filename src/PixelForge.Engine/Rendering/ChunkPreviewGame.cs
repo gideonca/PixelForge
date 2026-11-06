@@ -1,5 +1,6 @@
 using System.Numerics;
 using Microsoft.Extensions.Logging;
+using ControlsHandler = PixelForge.Engine.Controls.Controls;
 using PixelForge.Engine.Core;
 using PixelForge.Engine.Generation;
 using PixelForge.Engine.Meshing;
@@ -17,11 +18,9 @@ namespace PixelForge.Engine.Rendering;
 public sealed class ChunkPreviewGame : Game
 {
     private readonly List<(ChunkMesh Mesh, Vector3 Offset)> _chunks = [];
-    private const float MoveSpeed = 20f;
-    private const float FastMultiplier = 3f;
-    private const float LookSensitivity = 0.003f;
 
     private readonly FlyCamera _camera;
+    private readonly ControlsHandler _controls;
     private ChunkRenderer? _renderer;
 
     /// <summary>
@@ -72,6 +71,8 @@ public sealed class ChunkPreviewGame : Game
             FarPlane = Math.Max(500f, gridExtent * 6f),
             AspectRatio = width / (float)height
         };
+        _controls = new ControlsHandler(_camera);
+        _controls.ChunkBoundariesToggleRequested += ToggleChunkBoundaries;
     }
 
     protected override void OnLoad()
@@ -84,38 +85,17 @@ public sealed class ChunkPreviewGame : Game
 
     protected override void OnKeyDown(Key key)
     {
-        // F6 toggles the chunk boundary overlay.
-        if (key == Key.F6 && _renderer is not null)
-            _renderer.ShowChunkBoundaries = !_renderer.ShowChunkBoundaries;
+        _controls.HandleKeyDown(key);
     }
 
     protected override void OnMouseMove(Vector2 delta)
     {
-        // Only look around while the right button is held, so the cursor stays free otherwise.
-        if (!IsMouseButtonDown(MouseButton.Right))
-            return;
-
-        _camera.Yaw -= delta.X * LookSensitivity;
-        _camera.Pitch -= delta.Y * LookSensitivity;
+        _controls.HandleMouseMove(delta, IsMouseButtonDown(MouseButton.Right));
     }
 
     protected override void OnUpdate(double delta)
     {
-        // Build the movement direction from the held keys.
-        var direction = Vector3.Zero;
-        if (IsKeyDown(Key.W)) direction += _camera.Forward;
-        if (IsKeyDown(Key.S)) direction -= _camera.Forward;
-        if (IsKeyDown(Key.D)) direction += _camera.Right;
-        if (IsKeyDown(Key.A)) direction -= _camera.Right;
-        if (IsKeyDown(Key.E)) direction += Vector3.UnitZ;
-        if (IsKeyDown(Key.Q)) direction -= Vector3.UnitZ;
-
-        if (direction == Vector3.Zero)
-            return;
-
-        // Normalize so diagonal movement is not faster, and scale by time for frame-rate independence.
-        float speed = IsKeyDown(Key.ShiftLeft) ? MoveSpeed * FastMultiplier : MoveSpeed;
-        _camera.Position += Vector3.Normalize(direction) * speed * (float)delta;
+        _controls.Update(IsKeyDown, (float)delta);
     }
 
     protected override void OnRender(double delta)
@@ -130,5 +110,11 @@ public sealed class ChunkPreviewGame : Game
         // GPU resources must be released while the OpenGL context is still available.
         _renderer?.Dispose();
         _renderer = null;
+    }
+
+    private void ToggleChunkBoundaries()
+    {
+        if (_renderer is not null)
+            _renderer.ShowChunkBoundaries = !_renderer.ShowChunkBoundaries;
     }
 }
